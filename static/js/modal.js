@@ -153,6 +153,14 @@ document.addEventListener("DOMContentLoaded", () => {
     form.addEventListener("submit", async e => {
       e.preventDefault();
 
+      // Loading state
+      const btn = form.querySelector("button[type='submit']");
+      const originalText = btn ? btn.textContent : "";
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = "Memproses...";
+      }
+
       const formData = new FormData(form);
 
       try {
@@ -170,23 +178,37 @@ document.addEventListener("DOMContentLoaded", () => {
 
           if (formId === "loginSeekerForm" || formId === "loginCompanyForm") {
             window.location.reload();
-          } 
+          }
           else if (formId === "registerSeekerForm" || formId === "registerCompanyForm") {
             if (modalClose) modalClose.style.display = "none";
             if (modalOpen) modalOpen.style.display = "flex";
           }
         }
 
-        // ========== BAGIAN PENTING YANG DITAMBAHKAN ==========
+        // ← TAMBAHAN: handle MFA verify (sudah setup GA)
+        else if (result.status === "require_mfa") {
+          window.location.href = "/accounts/mfa/verify/";
+        }
+
+        // ← TAMBAHAN: handle MFA setup (belum setup GA)
+        else if (result.status === "setup_mfa") {
+          window.location.href = "/accounts/mfa/setup/";
+        }
+
         else if (result.status === "error") {
           const errMessages = result.errors || result.message || ["Gagal diproses"];
           showMessage(messageId, errMessages, "error");
         }
-        // ======================================================
 
       } catch(err) {
         console.error(err);
         showMessage(messageId, ["Kesalahan server"], "error");
+      } finally {
+        // Kembalikan tombol
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = originalText;
+        }
       }
     });
   }

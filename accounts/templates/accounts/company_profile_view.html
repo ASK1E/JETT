@@ -60,6 +60,39 @@
 
     </div>
 
+    <!-- ===== MFA STATUS ===== -->
+    <div style="margin-top: 32px; padding-top: 24px; border-top: 1px solid #eee; text-align: center;">
+      <p style="font-size: 0.85rem; font-weight: 600; color: #777; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px;">
+        Keamanan Akun
+      </p>
+
+      {% if totp_active %}
+        <p style="color: #2e7d32; font-weight: 600; margin-bottom: 14px;">
+          ✅ Google Authenticator Aktif
+        </p>
+        <form method="POST" action="{% url 'accounts:mfa_disable' %}">
+          {% csrf_token %}
+          <button
+            type="submit"
+            onclick="return confirm('Yakin ingin menonaktifkan Google Authenticator? Akun kamu akan kurang aman.')"
+            style="padding: 10px 22px; background: #fdecea; color: #d32f2f; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.9rem;"
+          >
+            Nonaktifkan MFA
+          </button>
+        </form>
+      {% else %}
+        <p style="color: #f9a825; font-weight: 600; margin-bottom: 14px;">
+          ⚠️ Google Authenticator Belum Aktif
+        </p>
+        <a
+          href="{% url 'accounts:mfa_setup' %}"
+          style="display: inline-block; padding: 10px 22px; background: #176ff2; color: #fff; border-radius: 8px; font-weight: 600; text-decoration: none; font-size: 0.9rem;"
+        >
+          Aktifkan Sekarang
+        </a>
+      {% endif %}
+    </div>
+
   </div>
 
 </div>

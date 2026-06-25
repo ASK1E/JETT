@@ -51,4 +51,9 @@ urlpatterns = [
 
     # ================= ACCOUNT =================
     path("delete/", views.delete_account, name="delete_account"),
+
+    # ================= MFA =================
+    path("mfa/setup/", views.mfa_setup, name="mfa_setup"),
+    path("mfa/verify/", views.mfa_verify, name="mfa_verify"),
+    path("mfa/disable/", views.mfa_disable, name="mfa_disable"),
 ]

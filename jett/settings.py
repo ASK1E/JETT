@@ -106,6 +106,9 @@ INSTALLED_APPS = [
     'jobs',
     'applications',
     'landing',
+
+    # ← TAMBAHAN: rate limiting
+    'axes',
 ]
 
 # =========================
@@ -118,7 +121,29 @@ MIDDLEWARE = [
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
+
+    # ← TAMBAHAN: axes middleware (harus paling bawah)
+    'axes.middleware.AxesMiddleware',
 ]
+
+# =========================
+# AUTHENTICATION BACKENDS
+# =========================
+# ← TAMBAHAN: axes backend wajib ada agar axes bisa intercept login
+AUTHENTICATION_BACKENDS = [
+    'axes.backends.AxesStandaloneBackend',
+    'django.contrib.auth.backends.ModelBackend',
+]
+
+# =========================
+# DJANGO-AXES (RATE LIMITING)
+# =========================
+AXES_FAILURE_LIMIT = 5           # maksimal 5x gagal login
+AXES_COOLOFF_TIME = 1            # lockout selama 1 jam
+AXES_LOCKOUT_CALLABLE = None     # return 403 default
+AXES_RESET_ON_SUCCESS = True     # reset counter kalau login berhasil
+AXES_ENABLE_ADMIN = False        # nonaktifkan axes di admin (tidak pakai admin)
+AXES_USERNAME_FORM_FIELD = "email"  # pakai email bukan username
 
 # =========================
 # TEMPLATES
@@ -141,7 +166,13 @@ TEMPLATES = [
 
 # =========================
 # LOGGING (SIAP KE SIEM)
+# ← FIX: path logging sekarang relatif ke BASE_DIR
 # =========================
+
+# Auto-create folder logs kalau belum ada
+LOG_DIR = BASE_DIR / "logs"
+os.makedirs(LOG_DIR, exist_ok=True)
+
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
@@ -156,7 +187,7 @@ LOGGING = {
         "jett_file": {
             "level": "INFO",
             "class": "logging.FileHandler",
-            "filename": "/var/log/jett/application.log",
+            "filename": str(LOG_DIR / "application.log"),  # ← FIX path
             "formatter": "jett_fmt",
         },
     },

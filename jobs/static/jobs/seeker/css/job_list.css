@@ -90,7 +90,6 @@
   margin: 2px 0;
 }
 
-
 .job-card:hover {
   box-shadow: 0 10px 22px rgba(0,0,0,0.08);
 }
@@ -124,6 +123,7 @@
 
 /* =========================
    MODAL
+   ← FIX: modal zoom bug
 ========================= */
 .modal {
   display: none;
@@ -133,12 +133,15 @@
   justify-content: center;
   align-items: center;
   z-index: 999;
+  padding: 16px; /* ← TAMBAHAN: biar ada breathing room di semua sisi */
 }
 
 .modal-content {
   background: #ffffff;
-  width: 700px;
-  max-width: 95%;
+  width: 90%;           /* ← FIX: relatif, bukan fixed 700px */
+  max-width: 700px;     /* ← tetap ada batas maksimal */
+  max-height: 90vh;     /* ← FIX: tidak overflow vertikal */
+  overflow-y: auto;     /* ← FIX: bisa scroll kalau konten panjang */
   padding: 40px 44px;
   border-radius: 22px;
   position: relative;
@@ -146,12 +149,18 @@
   animation: fadeIn 0.25s ease;
 }
 
+/* ← FIX: close button tidak ikut terpotong saat zoom */
 .close {
-  position: absolute;
-  top: 18px;
-  right: 24px;
+  position: sticky;
+  top: 0;
+  float: right;
   font-size: 26px;
   cursor: pointer;
+  z-index: 10;
+  background: #fff;
+  line-height: 1;
+  padding: 2px 6px;
+  border-radius: 4px;
 }
 
 /* ===== HEADER ===== */
@@ -175,7 +184,6 @@
   margin-bottom: 8px;
 }
 
-
 .modal-title {
   font-size: 1.6rem;
   font-weight: 700;
@@ -193,7 +201,6 @@
 .company-logo-placeholder {
   width: 120px;
   height: 120px;
-
 }
 
 .company-logo {
@@ -256,4 +263,31 @@
   text-align: center;
   font-size: 1rem;
   color: #777;
+}
+
+/* =========================
+   RESPONSIVE
+   ← TAMBAHAN: fix search form di mobile
+========================= */
+@media (max-width: 768px) {
+  .search-form {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .modal-content {
+    padding: 24px 20px;
+  }
+
+  .modal-header {
+    flex-direction: column-reverse;
+    gap: 16px;
+  }
+
+  .company-logo,
+  .company-logo-placeholder {
+    width: 72px;
+    height: 72px;
+    font-size: 1.8rem;
+  }
 }

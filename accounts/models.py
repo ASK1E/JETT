@@ -64,6 +64,10 @@ class EmailVerification(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     is_used = models.BooleanField(default=False)
 
+    # ← TAMBAHAN: token kedaluwarsa dalam 24 jam
+    def is_expired(self):
+        return timezone.now() > self.created_at + datetime.timedelta(hours=24)
+
 
 # ==========================
 # JOB SEEKER PROFILE
@@ -209,3 +213,24 @@ class PasswordResetToken(models.Model):
     token_hash = models.CharField(max_length=64, unique=True)
     created_at = models.DateTimeField(default=timezone.now)
     is_used = models.BooleanField(default=False)
+
+    # ← TAMBAHAN: token kedaluwarsa dalam 1 jam
+    def is_expired(self):
+        return timezone.now() > self.created_at + datetime.timedelta(hours=1)
+
+
+# ==========================
+# TOTP MFA DEVICE          ← BARU
+# ==========================
+class TOTPDevice(models.Model):
+    user = models.OneToOneField(
+        CustomUser,
+        on_delete=models.CASCADE,
+        related_name="totp_device"
+    )
+    secret = models.CharField(max_length=64)
+    is_verified = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"TOTP — {self.user.email}"

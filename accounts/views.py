@@ -9,6 +9,10 @@ from django.conf import settings
 from django.db import transaction
 import uuid
 import hashlib
+import pyotp
+import qrcode
+from io import BytesIO
+import base64
 
 from .models import (
     CustomUser,
@@ -16,6 +20,7 @@ from .models import (
     SeekerProfile,
     CompanyProfile,
     PasswordResetToken,
+    TOTPDevice,
 )
 from .forms import RegisterSeekerForm, RegisterCompanyForm, LoginForm
 
@@ -54,6 +59,19 @@ JETT | Job Explore Top Talent
         recipient_list=[user.email],
         fail_silently=True,
     )
+
+
+def _generate_qr_code(user, secret):
+    """Generate QR code sebagai base64 PNG untuk ditampilkan di template."""
+    totp_uri = pyotp.totp.TOTP(secret).provisioning_uri(
+        name=user.email,
+        issuer_name="JETT Job Portal"
+    )
+    qr = qrcode.make(totp_uri)
+    buffer = BytesIO()
+    qr.save(buffer, format="PNG")
+    buffer.seek(0)
+    return base64.b64encode(buffer.getvalue()).decode()
 
 
 # ==================================================
@@ -160,8 +178,20 @@ def _login_user(request, role):
             if not user or user.role != role or not user.is_active:
                 return JsonResponse({"status": "error"})
 
+            # ======= CEK TOTP =======
+            try:
+                totp_device = user.totp_device
+                if totp_device.is_verified:
+                    # Sudah setup TOTP → simpan di session, minta verifikasi
+                    request.session["pre_mfa_user_id"] = str(user.id)
+                    request.session["pre_mfa_role"] = role
+                    return JsonResponse({"status": "require_mfa"})
+            except TOTPDevice.DoesNotExist:
+                pass
+
+            # Belum setup TOTP → login dulu, lalu paksa setup
             login(request, user)
-            return JsonResponse({"status": "success"})
+            return JsonResponse({"status": "setup_mfa"})
 
         return JsonResponse({"status": "error", "errors": form.errors})
 
@@ -181,6 +211,10 @@ def verify_email(request, token):
         token_hash=token_hash,
         is_used=False
     )
+
+    # ← CEK EXPIRED
+    if verification.is_expired():
+        return render(request, "accounts/token_expired.html")
 
     user = verification.user
     user.is_active = True
@@ -215,8 +249,8 @@ def seeker_profile(request):
         profile.education = request.POST.get("education")
         profile.save()
 
-        # SETELAH LENGKAP → CARI KERJA
-        return redirect("jobs:job_list")
+        # SETELAH LENGKAP → PAKSA SETUP MFA
+        return redirect("accounts:mfa_setup")
 
     return render(request, "accounts/seeker_profile.html", {
         "seeker_profile": profile
@@ -242,8 +276,8 @@ def company_profile(request):
 
         profile.save()
 
-        # SETELAH LENGKAP → DASHBOARD EMPLOYER
-        return redirect("jobs:employer_home")
+        # SETELAH LENGKAP → PAKSA SETUP MFA
+        return redirect("accounts:mfa_setup")
 
     return render(request, "accounts/company_profile.html", {
         "company_profile": profile
@@ -263,8 +297,15 @@ def seeker_profile_view(request):
         user=request.user
     )
 
+    # Ambil status TOTP
+    try:
+        totp_active = request.user.totp_device.is_verified
+    except TOTPDevice.DoesNotExist:
+        totp_active = False
+
     return render(request, "accounts/seeker_profile_view.html", {
-        "seeker_profile": profile
+        "seeker_profile": profile,
+        "totp_active": totp_active,
     })
 
 
@@ -278,9 +319,114 @@ def company_profile_view(request):
         user=request.user
     )
 
+    # Ambil status TOTP
+    try:
+        totp_active = request.user.totp_device.is_verified
+    except TOTPDevice.DoesNotExist:
+        totp_active = False
+
     return render(request, "accounts/company_profile_view.html", {
-        "company_profile": profile
+        "company_profile": profile,
+        "totp_active": totp_active,
     })
+
+
+# ==================================================
+# MFA — SETUP TOTP (Google Authenticator)
+# ==================================================
+@login_required
+def mfa_setup(request):
+    device, created = TOTPDevice.objects.get_or_create(user=request.user)
+
+    if request.method == "POST":
+        otp_input = request.POST.get("otp", "").strip()
+        totp = pyotp.TOTP(device.secret)
+
+        if totp.verify(otp_input, valid_window=1):
+            device.is_verified = True
+            device.save()
+            messages.success(request, "Google Authenticator berhasil diaktifkan!")
+
+            if request.user.role == "seeker":
+                return redirect("jobs:job_list")
+            return redirect("jobs:employer_home")
+        else:
+            return render(request, "accounts/mfa_setup.html", {
+                "qr_code": _generate_qr_code(request.user, device.secret),
+                "secret": device.secret,
+                "error": "Kode OTP tidak valid. Pastikan waktu HP kamu sudah sinkron dan coba lagi."
+            })
+
+    # GET — generate secret baru kalau belum verified
+    if created or not device.is_verified:
+        device.secret = pyotp.random_base32()
+        device.is_verified = False
+        device.save()
+
+    return render(request, "accounts/mfa_setup.html", {
+        "qr_code": _generate_qr_code(request.user, device.secret),
+        "secret": device.secret,
+        "error": None
+    })
+
+
+# ==================================================
+# MFA — VERIFY TOTP (saat login)
+# ==================================================
+def mfa_verify(request):
+    user_id = request.session.get("pre_mfa_user_id")
+    role = request.session.get("pre_mfa_role")
+
+    if not user_id:
+        return redirect("/")
+
+    try:
+        user = CustomUser.objects.get(id=user_id)
+    except CustomUser.DoesNotExist:
+        return redirect("/")
+
+    if request.method == "POST":
+        otp_input = request.POST.get("otp", "").strip()
+
+        try:
+            device = user.totp_device
+            totp = pyotp.TOTP(device.secret)
+
+            if totp.verify(otp_input, valid_window=1):
+                # OTP valid → bersihkan session, login
+                del request.session["pre_mfa_user_id"]
+                del request.session["pre_mfa_role"]
+                login(request, user)
+
+                if role == "seeker":
+                    return redirect("jobs:job_list")
+                return redirect("jobs:employer_home")
+            else:
+                return render(request, "accounts/mfa_verify.html", {
+                    "error": "Kode OTP salah atau sudah kedaluwarsa. Coba lagi."
+                })
+
+        except TOTPDevice.DoesNotExist:
+            return redirect("/")
+
+    return render(request, "accounts/mfa_verify.html", {"error": None})
+
+
+# ==================================================
+# MFA — DISABLE TOTP
+# ==================================================
+@login_required
+def mfa_disable(request):
+    if request.method == "POST":
+        try:
+            request.user.totp_device.delete()
+            messages.success(request, "Google Authenticator berhasil dinonaktifkan.")
+        except TOTPDevice.DoesNotExist:
+            pass
+
+    if request.user.role == "seeker":
+        return redirect("accounts:seeker_profile_view")
+    return redirect("accounts:company_profile_view")
 
 
 # ==================================================
@@ -332,6 +478,10 @@ def reset_password_confirm(request, token):
         token_hash=token_hash,
         is_used=False
     )
+
+    # ← CEK EXPIRED
+    if reset_obj.is_expired():
+        return render(request, "accounts/token_expired.html")
 
     if request.method == "POST":
         if request.POST.get("password") != request.POST.get("password2"):
