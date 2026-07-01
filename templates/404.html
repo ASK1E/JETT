@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Halaman Tidak Ditemukan{% endblock %}
+
+{% block content %}
+<style>
+  .notfound-wrapper {
+    max-width: 500px;
+    margin: 80px auto;
+    padding: 20px;
+    font-family: 'Hanken Grotesk', sans-serif;
+    text-align: center;
+  }
+
+  .notfound-card {
+    background: #ffffff;
+    border-radius: 18px;
+    padding: 56px 40px;
+    box-shadow: 0 18px 45px rgba(0, 0, 0, 0.08);
+  }
+
+  .notfound-code {
+    font-size: 5rem;
+    font-weight: 700;
+    color: #176ff2;
+    line-height: 1;
+    margin-bottom: 8px;
+    letter-spacing: -2px;
+  }
+
+  .notfound-title {
+    font-size: 1.4rem;
+    font-weight: 600;
+    color: #111;
+    margin-bottom: 12px;
+  }
+
+  .notfound-desc {
+    font-size: 0.95rem;
+    color: #666;
+    line-height: 1.7;
+    margin-bottom: 32px;
+  }
+
+  .notfound-divider {
+    width: 50px;
+    height: 3px;
+    background: #176ff2;
+    border-radius: 10px;
+    margin: 0 auto 28px;
+  }
+
+  .btn-home {
+    display: inline-block;
+    padding: 12px 28px;
+    background: #377DFF;
+    color: #fff;
+    border-radius: 8px;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 0.95rem;
+    transition: background 0.2s, transform 0.2s;
+    margin-right: 10px;
+  }
+
+  .btn-home:hover {
+    background: #1f5cd9;
+    transform: translateY(-1px);
+  }
+
+  .btn-back {
+    display: inline-block;
+    padding: 12px 28px;
+    background: #f5f5f5;
+    color: #333;
+    border-radius: 8px;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 0.95rem;
+    transition: background 0.2s, transform 0.2s;
+  }
+
+  .btn-back:hover {
+    background: #e8e8e8;
+    transform: translateY(-1px);
+  }
+</style>
+
+<div class="notfound-wrapper">
+  <div class="notfound-card">
+
+    <div class="notfound-code">404</div>
+    <div class="notfound-divider"></div>
+
+    <h1 class="notfound-title">Halaman Tidak Ditemukan</h1>
+    <p class="notfound-desc">
+      Halaman yang kamu cari tidak tersedia atau mungkin sudah dipindahkan.
+      Pastikan URL yang kamu masukkan sudah benar.
+    </p>
+
+    <a href="/" class="btn-home">Kembali ke Beranda</a>
+    <a href="javascript:history.back()" class="btn-back">Halaman Sebelumnya</a>
+
+  </div>
+</div>
+{% endblock %}

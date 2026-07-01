@@ -182,7 +182,6 @@ def _login_user(request, role):
             try:
                 totp_device = user.totp_device
                 if totp_device.is_verified:
-                    # Sudah setup TOTP → simpan di session, minta verifikasi
                     request.session["pre_mfa_user_id"] = str(user.id)
                     request.session["pre_mfa_role"] = role
                     return JsonResponse({"status": "require_mfa"})
@@ -212,7 +211,6 @@ def verify_email(request, token):
         is_used=False
     )
 
-    # ← CEK EXPIRED
     if verification.is_expired():
         return render(request, "accounts/token_expired.html")
 
@@ -225,6 +223,9 @@ def verify_email(request, token):
     verification.save()
 
     login(request, user, backend='django.contrib.auth.backends.ModelBackend')
+
+    if user.role == "seeker":
+        return redirect("accounts:seeker_profile_setup")
 
     return redirect("accounts:company_profile_setup")
 
@@ -239,18 +240,35 @@ def seeker_profile(request):
 
     profile, _ = SeekerProfile.objects.get_or_create(user=request.user)
 
-    if request.method == "POST":
-        profile.date_of_birth = request.POST.get("date_of_birth") or None
-        profile.address = request.POST.get("address")
-        profile.phone = request.POST.get("phone")
-        profile.education = request.POST.get("education")
-        profile.save()
+    errors = {}
 
-        # SETELAH LENGKAP → PAKSA SETUP MFA
-        return redirect("accounts:mfa_setup")
+    if request.method == "POST":
+        date_of_birth = request.POST.get("date_of_birth", "").strip()
+        address = request.POST.get("address", "").strip()
+        phone = request.POST.get("phone", "").strip()
+        education = request.POST.get("education", "").strip()
+
+        # Validasi semua field wajib
+        if not date_of_birth:
+            errors["date_of_birth"] = "Tanggal lahir wajib diisi."
+        if not address:
+            errors["address"] = "Alamat wajib diisi."
+        if not phone:
+            errors["phone"] = "Nomor telepon wajib diisi."
+        if not education:
+            errors["education"] = "Pendidikan terakhir wajib dipilih."
+
+        if not errors:
+            profile.date_of_birth = date_of_birth
+            profile.address = address
+            profile.phone = phone
+            profile.education = education
+            profile.save()
+            return redirect("accounts:mfa_setup")
 
     return render(request, "accounts/seeker_profile.html", {
-        "seeker_profile": profile
+        "seeker_profile": profile,
+        "errors": errors,
     })
 
 
@@ -261,23 +279,43 @@ def company_profile(request):
 
     profile, _ = CompanyProfile.objects.get_or_create(user=request.user)
 
+    errors = {}
+
     if request.method == "POST":
-        profile.owner_name = request.POST.get("owner_name")
-        profile.address = request.POST.get("address")
-        profile.phone = request.POST.get("phone")
-        profile.industry = request.POST.get("industry")
-        profile.description = request.POST.get("description")
+        owner_name = request.POST.get("owner_name", "").strip()
+        address = request.POST.get("address", "").strip()
+        phone = request.POST.get("phone", "").strip()
+        industry = request.POST.get("industry", "").strip()
+        description = request.POST.get("description", "").strip()
 
-        if request.FILES.get("logo"):
-            profile.logo = request.FILES["logo"]
+        # Validasi semua field wajib
+        if not owner_name:
+            errors["owner_name"] = "Nama pemilik wajib diisi."
+        if not address:
+            errors["address"] = "Alamat perusahaan wajib diisi."
+        if not phone:
+            errors["phone"] = "Nomor telepon wajib diisi."
+        if not industry:
+            errors["industry"] = "Bidang industri wajib dipilih."
+        if not description:
+            errors["description"] = "Deskripsi perusahaan wajib diisi."
 
-        profile.save()
+        if not errors:
+            profile.owner_name = owner_name
+            profile.address = address
+            profile.phone = phone
+            profile.industry = industry
+            profile.description = description
 
-        # SETELAH LENGKAP → PAKSA SETUP MFA
-        return redirect("accounts:mfa_setup")
+            if request.FILES.get("logo"):
+                profile.logo = request.FILES["logo"]
+
+            profile.save()
+            return redirect("accounts:mfa_setup")
 
     return render(request, "accounts/company_profile.html", {
-        "company_profile": profile
+        "company_profile": profile,
+        "errors": errors,
     })
 
 
@@ -289,12 +327,8 @@ def seeker_profile_view(request):
     if request.user.role != "seeker":
         return redirect("/")
 
-    profile = get_object_or_404(
-        SeekerProfile,
-        user=request.user
-    )
+    profile = get_object_or_404(SeekerProfile, user=request.user)
 
-    # Ambil status TOTP
     try:
         totp_active = request.user.totp_device.is_verified
     except TOTPDevice.DoesNotExist:
@@ -311,12 +345,8 @@ def company_profile_view(request):
     if request.user.role != "company":
         return redirect("/")
 
-    profile = get_object_or_404(
-        CompanyProfile,
-        user=request.user
-    )
+    profile = get_object_or_404(CompanyProfile, user=request.user)
 
-    # Ambil status TOTP
     try:
         totp_active = request.user.totp_device.is_verified
     except TOTPDevice.DoesNotExist:
@@ -354,7 +384,6 @@ def mfa_setup(request):
                 "error": "Kode OTP tidak valid. Pastikan waktu HP kamu sudah sinkron dan coba lagi."
             })
 
-    # GET — generate secret baru kalau belum verified
     if created or not device.is_verified:
         device.secret = pyotp.random_base32()
         device.is_verified = False
@@ -390,11 +419,12 @@ def mfa_verify(request):
             totp = pyotp.TOTP(device.secret)
 
             if totp.verify(otp_input, valid_window=1):
-                # OTP valid → bersihkan session, login
                 del request.session["pre_mfa_user_id"]
                 del request.session["pre_mfa_role"]
                 login(request, user, backend='django.contrib.auth.backends.ModelBackend')
-                return redirect("jobs:job_list")
+
+                if role == "seeker":
+                    return redirect("jobs:job_list")
                 return redirect("jobs:employer_home")
             else:
                 return render(request, "accounts/mfa_verify.html", {
@@ -483,7 +513,6 @@ def reset_password_confirm(request, token):
         is_used=False
     )
 
-    # ← CEK EXPIRED
     if reset_obj.is_expired():
         return render(request, "accounts/token_expired.html")
 

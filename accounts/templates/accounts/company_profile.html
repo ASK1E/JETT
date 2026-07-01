@@ -22,26 +22,42 @@
 
         <!-- Nama Pemilik -->
         <div class="input-group">
-            <label>Nama Pemilik</label>
-            <input type="text" name="owner_name" value="{{ company_profile.owner_name|default:'' }}">
+            <label>Nama Pemilik <span style="color:#d32f2f;">*</span></label>
+            <input type="text" name="owner_name"
+                   value="{{ company_profile.owner_name|default:'' }}"
+                   style="{% if errors.owner_name %}border-color:#d32f2f;{% endif %}">
+            {% if errors.owner_name %}
+                <small style="color:#d32f2f;">{{ errors.owner_name }}</small>
+            {% endif %}
         </div>
 
         <!-- Alamat Perusahaan -->
         <div class="input-group">
-            <label>Alamat Perusahaan</label>
-            <input type="text" name="address" value="{{ company_profile.address|default:'' }}">
+            <label>Alamat Perusahaan <span style="color:#d32f2f;">*</span></label>
+            <input type="text" name="address"
+                   value="{{ company_profile.address|default:'' }}"
+                   style="{% if errors.address %}border-color:#d32f2f;{% endif %}">
+            {% if errors.address %}
+                <small style="color:#d32f2f;">{{ errors.address }}</small>
+            {% endif %}
         </div>
 
         <!-- Nomor Telepon -->
         <div class="input-group short">
-            <label>Nomor Telepon Perusahaan</label>
-            <input type="text" name="phone" value="{{ company_profile.phone|default:'' }}" placeholder="08">
+            <label>Nomor Telepon Perusahaan <span style="color:#d32f2f;">*</span></label>
+            <input type="text" name="phone"
+                   value="{{ company_profile.phone|default:'' }}" placeholder="08"
+                   style="{% if errors.phone %}border-color:#d32f2f;{% endif %}">
+            {% if errors.phone %}
+                <small style="color:#d32f2f;">{{ errors.phone }}</small>
+            {% endif %}
         </div>
 
         <!-- Bidang Industri -->
         <div class="input-group">
-            <label>Bidang Industri</label>
-            <select name="industry">
+            <label>Bidang Industri <span style="color:#d32f2f;">*</span></label>
+            <select name="industry"
+                    style="{% if errors.industry %}border-color:#d32f2f;{% endif %}">
                 <option value="">-- Pilih Industri --</option>
                 {% for code, label in company_profile.INDUSTRY_CHOICES %}
                     <option value="{{ code }}"
@@ -50,22 +66,27 @@
                     </option>
                 {% endfor %}
             </select>
+            {% if errors.industry %}
+                <small style="color:#d32f2f;">{{ errors.industry }}</small>
+            {% endif %}
         </div>
 
         <!-- Deskripsi Perusahaan -->
         <div class="input-group">
-            <label>Deskripsi Perusahaan</label>
-            <textarea name="description" rows="4">{{ company_profile.description|default:'' }}</textarea>
+            <label>Deskripsi Perusahaan <span style="color:#d32f2f;">*</span></label>
+            <textarea name="description" rows="4"
+                      style="{% if errors.description %}border-color:#d32f2f;{% endif %}">{{ company_profile.description|default:'' }}</textarea>
+            {% if errors.description %}
+                <small style="color:#d32f2f;">{{ errors.description }}</small>
+            {% endif %}
         </div>
 
         <!-- Logo Perusahaan -->
         <div class="input-group">
             <label>Logo Perusahaan</label>
-
             {% if company_profile.logo %}
                 <img src="{{ company_profile.logo.url }}" alt="Logo Perusahaan" class="preview-logo">
             {% endif %}
-
             <input type="file" name="logo">
         </div>
 
