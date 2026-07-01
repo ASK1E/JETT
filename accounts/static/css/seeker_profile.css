@@ -87,6 +87,13 @@
     transform: translateY(-1px);
 }
 
+/* ====================== ERROR STATE ====================== */
+.input-group.input-error input,
+.input-group.input-error select,
+.input-group.input-error textarea {
+    border-color: #d32f2f;
+}
+
 /* ====================== BACKGROUND HALAMAN (khusus company) ====================== */
 .profile-page {
     background: linear-gradient(to bottom, #6FAAF9 0%, #FFFFFF 100%);
